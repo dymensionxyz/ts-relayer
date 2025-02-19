@@ -1,4 +1,4 @@
-import { arrayContentEquals, isDefined } from "@cosmjs/utils";
+import { arrayContentEquals, isDefined, sleep } from '@cosmjs/utils';
 import { Order, Packet, State } from "cosmjs-types/ibc/core/channel/v1/channel";
 import { Height } from "cosmjs-types/ibc/core/client/v1/client";
 
@@ -815,6 +815,7 @@ export class Link {
     const { src, dest } = this.getEnds(source);
     const destSide = otherSide(source);
 
+    await sleep(dest.client.estimatedBlockTime);
     const headerHeight = await this.updateClient(destSide);
 
     const rawPackets = packets.map(({ packet }) => packet);
