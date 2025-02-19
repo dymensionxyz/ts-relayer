@@ -815,9 +815,6 @@ export class Link {
     const { src, dest } = this.getEnds(source);
     const destSide = otherSide(source);
 
-    // We need a header that is after the timeout, not after the packet was committed
-    // This can get complex with timeout timestamps. Let's just update to latest
-    await dest.client.waitOneBlock();
     const headerHeight = await this.updateClient(destSide);
 
     const rawPackets = packets.map(({ packet }) => packet);
