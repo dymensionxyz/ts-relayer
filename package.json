@@ -26,7 +26,8 @@
     "cov:lcov": "nyc report --reporter=lcov",
     "cov:send": "run-s cov:lcov && codecov",
     "cov:check": "nyc report && nyc check-coverage --lines 100 --functions 100 --branches 100",
-    "proto": "./scripts/proto/get-proto.sh && ./scripts/proto/define-proto.sh && yarn fix"
+    "proto": "./scripts/proto/get-proto.sh && ./scripts/proto/define-proto.sh && yarn fix",
+    "prepare": "npm run build"
   },
   "engines": {
     "node": ">=18"
