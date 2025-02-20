@@ -25,22 +25,25 @@ import {
   tendermint37,
 } from '@cosmjs/tendermint-rpc';
 import { arrayContentEquals, assert, sleep } from '@cosmjs/utils';
+import { Long } from 'cosmjs-types-v08/helpers';
+import {
+  MsgAcknowledgement,
+  MsgRecvPacket,
+  MsgTimeout,
+} from 'cosmjs-types-v08/ibc/core/channel/v1/tx';
+import { MsgUpdateClient } from 'cosmjs-types-v08/ibc/core/client/v1/tx';
 import { Any } from 'cosmjs-types/google/protobuf/any';
 import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
 import { Order, Packet, State } from 'cosmjs-types/ibc/core/channel/v1/channel';
 import {
-  MsgAcknowledgement,
   MsgChannelOpenAck,
   MsgChannelOpenConfirm,
   MsgChannelOpenInit,
   MsgChannelOpenTry,
-  MsgRecvPacket,
-  MsgTimeout,
 } from 'cosmjs-types/ibc/core/channel/v1/tx';
 import { Height } from 'cosmjs-types/ibc/core/client/v1/client';
 import {
   MsgCreateClient,
-  MsgUpdateClient,
 } from 'cosmjs-types/ibc/core/client/v1/tx';
 import { Version } from 'cosmjs-types/ibc/core/connection/v1/connection';
 import {
@@ -1221,9 +1224,21 @@ export class IbcClient {
       const msg = {
         typeUrl: '/ibc.core.channel.v1.MsgRecvPacket',
         value: MsgRecvPacket.fromPartial({
-          packet,
+          packet: {
+            ...packet,
+            timeoutTimestamp: Long.fromString(packet.timeoutTimestamp.toString()),
+            sequence: Long.fromString(packet.sequence.toString()),
+            timeoutHeight: {
+              revisionNumber: Long.fromString(packet.timeoutHeight.revisionNumber.toString()),
+              revisionHeight: Long.fromString(packet.timeoutHeight.revisionHeight.toString()),
+            },
+          },
           proofCommitment: proofCommitments[i],
-          proofHeight,
+          proofHeight: !proofHeight ? undefined : {
+            revisionNumber: Long.fromString(proofHeight.revisionNumber.toString()),
+            revisionHeight: Long.fromString(proofHeight.revisionHeight.toString()),
+          },
+
           signer: senderAddress,
         }),
       };
@@ -1297,10 +1312,21 @@ export class IbcClient {
       const msg = {
         typeUrl: '/ibc.core.channel.v1.MsgAcknowledgement',
         value: MsgAcknowledgement.fromPartial({
-          packet,
+          packet: {
+            ...packet,
+            timeoutTimestamp: Long.fromString(packet.timeoutTimestamp.toString()),
+            sequence: Long.fromString(packet.sequence.toString()),
+            timeoutHeight: {
+              revisionNumber: Long.fromString(packet.timeoutHeight.revisionNumber.toString()),
+              revisionHeight: Long.fromString(packet.timeoutHeight.revisionHeight.toString()),
+            },
+          },
           acknowledgement,
           proofAcked: proofAckeds[i],
-          proofHeight,
+          proofHeight: !proofHeight ? undefined : {
+            revisionNumber: Long.fromString(proofHeight.revisionNumber.toString()),
+            revisionHeight: Long.fromString(proofHeight.revisionHeight.toString()),
+          },
           signer: senderAddress,
         }),
       };
@@ -1379,10 +1405,21 @@ export class IbcClient {
       const msg = {
         typeUrl: '/ibc.core.channel.v1.MsgTimeout',
         value: MsgTimeout.fromPartial({
-          packet,
+          packet: {
+            ...packet,
+            timeoutTimestamp: Long.fromString(packet.timeoutTimestamp.toString()),
+            sequence: Long.fromString(packet.sequence.toString()),
+            timeoutHeight: {
+              revisionNumber: Long.fromString(packet.timeoutHeight.revisionNumber.toString()),
+              revisionHeight: Long.fromString(packet.timeoutHeight.revisionHeight.toString()),
+            },
+          },
           proofUnreceived: proofsUnreceived[i],
-          nextSequenceRecv: nextSequenceRecv[i],
-          proofHeight,
+          nextSequenceRecv: Long.fromString(nextSequenceRecv[i].toString()),
+          proofHeight: {
+            revisionNumber: Long.fromString(proofHeight.revisionNumber.toString()),
+            revisionHeight: Long.fromString(proofHeight.revisionHeight.toString()),
+          },
           signer: senderAddress,
         }),
       };

@@ -47,6 +47,7 @@
     "axios": "^1.6.7",
     "commander": "7.1.0",
     "cosmjs-types": "^0.9.0",
+    "cosmjs-types-v08": "npm:cosmjs-types@^0.8.0",
     "fast-safe-stringify": "2.0.4",
     "js-yaml": "4.0.0",
     "prom-client": "13.1.0",
