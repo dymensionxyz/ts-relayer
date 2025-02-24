@@ -1,5 +1,5 @@
-import { toAscii, toBase64 } from '@cosmjs/encoding';
-import { EncodeObject, OfflineSigner, Registry } from '@cosmjs/proto-signing';
+import { toAscii, toBase64 } from "@cosmjs/encoding";
+import { EncodeObject, OfflineSigner, Registry } from "@cosmjs/proto-signing";
 import {
   AuthExtension,
   BankExtension,
@@ -15,7 +15,7 @@ import {
   SigningStargateClient,
   SigningStargateClientOptions,
   StakingExtension,
-} from '@cosmjs/stargate';
+} from "@cosmjs/stargate";
 import {
   comet38,
   CometClient,
@@ -23,50 +23,48 @@ import {
   ReadonlyDateWithNanoseconds,
   tendermint34,
   tendermint37,
-} from '@cosmjs/tendermint-rpc';
-import { arrayContentEquals, assert, sleep } from '@cosmjs/utils';
-import { Long } from 'cosmjs-types-v08/helpers';
+} from "@cosmjs/tendermint-rpc";
+import { arrayContentEquals, assert, sleep } from "@cosmjs/utils";
+import { Long } from "cosmjs-types-v08/helpers";
 import {
   MsgAcknowledgement,
   MsgRecvPacket,
   MsgTimeout,
-} from 'cosmjs-types-v08/ibc/core/channel/v1/tx';
-import { MsgUpdateClient } from 'cosmjs-types-v08/ibc/core/client/v1/tx';
-import { Any } from 'cosmjs-types/google/protobuf/any';
-import { MsgTransfer } from 'cosmjs-types/ibc/applications/transfer/v1/tx';
-import { Order, Packet, State } from 'cosmjs-types/ibc/core/channel/v1/channel';
+} from "cosmjs-types-v08/ibc/core/channel/v1/tx";
+import { MsgUpdateClient } from "cosmjs-types-v08/ibc/core/client/v1/tx";
+import { Any } from "cosmjs-types/google/protobuf/any";
+import { MsgTransfer } from "cosmjs-types/ibc/applications/transfer/v1/tx";
+import { Order, Packet, State } from "cosmjs-types/ibc/core/channel/v1/channel";
 import {
   MsgChannelOpenAck,
   MsgChannelOpenConfirm,
   MsgChannelOpenInit,
   MsgChannelOpenTry,
-} from 'cosmjs-types/ibc/core/channel/v1/tx';
-import { Height } from 'cosmjs-types/ibc/core/client/v1/client';
-import {
-  MsgCreateClient,
-} from 'cosmjs-types/ibc/core/client/v1/tx';
-import { Version } from 'cosmjs-types/ibc/core/connection/v1/connection';
+} from "cosmjs-types/ibc/core/channel/v1/tx";
+import { Height } from "cosmjs-types/ibc/core/client/v1/client";
+import { MsgCreateClient } from "cosmjs-types/ibc/core/client/v1/tx";
+import { Version } from "cosmjs-types/ibc/core/connection/v1/connection";
 import {
   MsgConnectionOpenAck,
   MsgConnectionOpenConfirm,
   MsgConnectionOpenInit,
   MsgConnectionOpenTry,
-} from 'cosmjs-types/ibc/core/connection/v1/tx';
+} from "cosmjs-types/ibc/core/connection/v1/tx";
 import {
   ClientState as TendermintClientState,
   ConsensusState as TendermintConsensusState,
   Header as TendermintHeader,
-} from 'cosmjs-types/ibc/lightclients/tendermint/v1/tendermint';
+} from "cosmjs-types/ibc/lightclients/tendermint/v1/tendermint";
 import {
   blockIDFlagFromJSON,
   Commit,
   Header,
   SignedHeader,
-} from 'cosmjs-types/tendermint/types/types';
-import { ValidatorSet } from 'cosmjs-types/tendermint/types/validator';
+} from "cosmjs-types/tendermint/types/types";
+import { ValidatorSet } from "cosmjs-types/tendermint/types/validator";
 
-import { Logger, NoopLogger } from './logger';
-import { IbcExtension, setupIbcExtension } from './queries/ibc';
+import { Logger, NoopLogger } from "./logger";
+import { IbcExtension, setupIbcExtension } from "./queries/ibc";
 import {
   Ack,
   buildClientState,
@@ -78,7 +76,7 @@ import {
   subtractBlock,
   timestampFromDateNanos,
   toIntHeight,
-} from './utils';
+} from "./utils";
 
 type CometHeader = tendermint34.Header | tendermint37.Header | comet38.Header;
 type CometCommitResponse =
@@ -110,11 +108,11 @@ function toBase64AsAny(...input: Parameters<typeof toBase64>) {
 
 // these are from the cosmos sdk implementation
 const defaultMerklePrefix = {
-  keyPrefix: toAscii('ibc'),
+  keyPrefix: toAscii("ibc"),
 };
 const defaultConnectionVersion: Version = {
-  identifier: '1',
-  features: [ 'ORDER_ORDERED', 'ORDER_UNORDERED' ],
+  identifier: "1",
+  features: ["ORDER_ORDERED", "ORDER_UNORDERED"],
 };
 // this is a sane default, but we can revisit it
 const defaultDelayPeriod = 0n;
@@ -122,23 +120,23 @@ const defaultDelayPeriod = 0n;
 function ibcRegistry(): Registry {
   return new Registry([
     ...defaultRegistryTypes,
-    [ '/ibc.core.client.v1.MsgCreateClient', MsgCreateClient ],
-    [ '/ibc.core.client.v1.MsgUpdateClient', MsgUpdateClient ],
-    [ '/ibc.core.connection.v1.MsgConnectionOpenInit', MsgConnectionOpenInit ],
-    [ '/ibc.core.connection.v1.MsgConnectionOpenTry', MsgConnectionOpenTry ],
-    [ '/ibc.core.connection.v1.MsgConnectionOpenAck', MsgConnectionOpenAck ],
+    ["/ibc.core.client.v1.MsgCreateClient", MsgCreateClient],
+    ["/ibc.core.client.v1.MsgUpdateClient", MsgUpdateClient],
+    ["/ibc.core.connection.v1.MsgConnectionOpenInit", MsgConnectionOpenInit],
+    ["/ibc.core.connection.v1.MsgConnectionOpenTry", MsgConnectionOpenTry],
+    ["/ibc.core.connection.v1.MsgConnectionOpenAck", MsgConnectionOpenAck],
     [
-      '/ibc.core.connection.v1.MsgConnectionOpenConfirm',
+      "/ibc.core.connection.v1.MsgConnectionOpenConfirm",
       MsgConnectionOpenConfirm,
     ],
-    [ '/ibc.core.channel.v1.MsgChannelOpenInit', MsgChannelOpenInit ],
-    [ '/ibc.core.channel.v1.MsgChannelOpenTry', MsgChannelOpenTry ],
-    [ '/ibc.core.channel.v1.MsgChannelOpenAck', MsgChannelOpenAck ],
-    [ '/ibc.core.channel.v1.MsgChannelOpenConfirm', MsgChannelOpenConfirm ],
-    [ '/ibc.core.channel.v1.MsgRecvPacket', MsgRecvPacket ],
-    [ '/ibc.core.channel.v1.MsgAcknowledgement', MsgAcknowledgement ],
-    [ '/ibc.core.channel.v1.MsgTimeout', MsgTimeout ],
-    [ '/ibc.applications.transfer.v1.MsgTransfer', MsgTransfer ],
+    ["/ibc.core.channel.v1.MsgChannelOpenInit", MsgChannelOpenInit],
+    ["/ibc.core.channel.v1.MsgChannelOpenTry", MsgChannelOpenTry],
+    ["/ibc.core.channel.v1.MsgChannelOpenAck", MsgChannelOpenAck],
+    ["/ibc.core.channel.v1.MsgChannelOpenConfirm", MsgChannelOpenConfirm],
+    ["/ibc.core.channel.v1.MsgRecvPacket", MsgRecvPacket],
+    ["/ibc.core.channel.v1.MsgAcknowledgement", MsgAcknowledgement],
+    ["/ibc.core.channel.v1.MsgTimeout", MsgTimeout],
+    ["/ibc.applications.transfer.v1.MsgTransfer", MsgTransfer],
   ]);
 }
 
@@ -289,7 +287,7 @@ export class IbcClient {
   }
 
   public ensureRevisionHeight(height: number | Height): Height {
-    if (typeof height === 'number') {
+    if (typeof height === "number") {
       return Height.fromPartial({
         revisionHeight: BigInt(height),
         revisionNumber: this.revisionNumber,
@@ -309,7 +307,7 @@ export class IbcClient {
   }
 
   public getChainId(): Promise<string> {
-    this.logger.verbose('Get chain ID');
+    this.logger.verbose("Get chain ID");
     return this.sign.getChainId();
   }
 
@@ -362,7 +360,7 @@ export class IbcClient {
   public getCommit(height?: number): Promise<CometCommitResponse> {
     this.logger.verbose(
       height === undefined
-        ? 'Get latest commit'
+        ? "Get latest commit"
         : `Get commit for height ${height}`,
     );
     return this.tm.commit(height);
@@ -373,9 +371,9 @@ export class IbcClient {
     const { params } = await this.query.staking.params();
     const seconds = Number(params?.unbondingTime?.seconds ?? 0);
     if (!seconds) {
-      throw new Error('No unbonding period found');
+      throw new Error("No unbonding period found");
     }
-    this.logger.verbose('Queried unbonding period', { seconds });
+    this.logger.verbose("Queried unbonding period", { seconds });
     return seconds;
   }
 
@@ -459,8 +457,10 @@ export class IbcClient {
   //   Height, Round, BlockId, TimeStamp, ChainID
   //
   // DYMENSION CHANGE: moved signed header to be arg to enable lazy calls
-  public async buildHeader(clientHeight: number, signedHeader : SignedHeader): Promise<TendermintHeader> {
-
+  public async buildHeader(
+    clientHeight: number,
+    signedHeader: SignedHeader,
+  ): Promise<TendermintHeader> {
     // "assert that trustedVals is NextValidators of last trusted header"
     // https://github.com/cosmos/cosmos-sdk/blob/v0.41.0/x/ibc/light-clients/07-tendermint/types/update.go#L74
     /* eslint @typescript-eslint/no-non-null-assertion: "off" */
@@ -469,7 +469,7 @@ export class IbcClient {
       signedHeader,
       validatorSet: await this.getValidatorSet(curHeight),
       trustedHeight: this.revisionHeight(clientHeight),
-      trustedValidators: await this.getValidatorSet(clientHeight+1),
+      trustedValidators: await this.getValidatorSet(clientHeight + 1),
     });
   }
 
@@ -618,11 +618,14 @@ export class IbcClient {
     // Avoid force updating if already up to date, or node is latent (not sequencer)
     const signedHeader = await src.getSignedHeader();
     const curHeight = Number(signedHeader.header!.height);
-    if ( curHeight <= latestHeight.revisionHeight ) {
+    if (curHeight <= latestHeight.revisionHeight) {
       return latestHeight;
     }
 
-    const header = await src.buildHeader(toIntHeight(latestHeight), signedHeader);
+    const header = await src.buildHeader(
+      toIntHeight(latestHeight),
+      signedHeader,
+    );
     await this.updateTendermintClient(clientId, header);
     const height = Number(header.signedHeader?.header?.height ?? 0);
     return src.revisionHeight(height);
@@ -636,7 +639,7 @@ export class IbcClient {
     memo?: string,
   ): Promise<MsgResult> {
     this.logger.verbose(`Send tokens to ${recipientAddress}`);
-    this.logger.debug('Send tokens:', {
+    this.logger.debug("Send tokens:", {
       senderAddress: this.senderAddress,
       recipientAddress,
       transferAmount,
@@ -646,7 +649,7 @@ export class IbcClient {
       this.senderAddress,
       recipientAddress,
       transferAmount,
-      'auto',
+      "auto",
       memo,
     );
     if (isDeliverTxFailure(result)) {
@@ -669,7 +672,7 @@ export class IbcClient {
     const result = await this.sign.signAndBroadcast(
       senderAddress,
       msgs,
-      'auto',
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -688,35 +691,35 @@ export class IbcClient {
     this.logger.verbose(`Create Tendermint client`);
     const senderAddress = this.senderAddress;
     const createMsg = {
-      typeUrl: '/ibc.core.client.v1.MsgCreateClient',
+      typeUrl: "/ibc.core.client.v1.MsgCreateClient",
       value: MsgCreateClient.fromPartial({
         signer: senderAddress,
         clientState: {
-          typeUrl: '/ibc.lightclients.tendermint.v1.ClientState',
+          typeUrl: "/ibc.lightclients.tendermint.v1.ClientState",
           value: TendermintClientState.encode(clientState).finish(),
         },
         consensusState: {
-          typeUrl: '/ibc.lightclients.tendermint.v1.ConsensusState',
+          typeUrl: "/ibc.lightclients.tendermint.v1.ConsensusState",
           value: TendermintConsensusState.encode(consensusState).finish(),
         },
       }),
     };
-    this.logger.debug('MsgCreateClient', createMsg);
+    this.logger.debug("MsgCreateClient", createMsg);
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ createMsg ],
-      'auto',
+      [createMsg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
     }
 
     const clientId = result.events
-      .find((x) => x.type == 'create_client')
-      ?.attributes.find((x) => x.key == 'client_id')?.value;
+      .find((x) => x.type == "create_client")
+      ?.attributes.find((x) => x.key == "client_id")?.value;
     if (!clientId) {
-      throw new Error('Could not read TX events.');
+      throw new Error("Could not read TX events.");
     }
 
     return {
@@ -734,12 +737,12 @@ export class IbcClient {
     this.logger.verbose(`Update Tendermint client ${clientId}`);
     const senderAddress = this.senderAddress;
     const updateMsg = {
-      typeUrl: '/ibc.core.client.v1.MsgUpdateClient',
+      typeUrl: "/ibc.core.client.v1.MsgUpdateClient",
       value: MsgUpdateClient.fromPartial({
         signer: senderAddress,
         clientId,
         clientMessage: {
-          typeUrl: '/ibc.lightclients.tendermint.v1.Header',
+          typeUrl: "/ibc.lightclients.tendermint.v1.Header",
           value: TendermintHeader.encode(header).finish(),
         },
       }),
@@ -758,8 +761,8 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ updateMsg ],
-      'auto',
+      [updateMsg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -778,7 +781,7 @@ export class IbcClient {
     this.logger.info(`Connection open init: ${clientId} => ${remoteClientId}`);
     const senderAddress = this.senderAddress;
     const msg = {
-      typeUrl: '/ibc.core.connection.v1.MsgConnectionOpenInit',
+      typeUrl: "/ibc.core.connection.v1.MsgConnectionOpenInit",
       value: MsgConnectionOpenInit.fromPartial({
         clientId,
         counterparty: {
@@ -794,18 +797,18 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
     }
 
     const connectionId = result.events
-      .find((x) => x.type == 'connection_open_init')
-      ?.attributes.find((x) => x.key == 'connection_id')?.value;
+      .find((x) => x.type == "connection_open_init")
+      ?.attributes.find((x) => x.key == "connection_id")?.value;
     if (!connectionId) {
-      throw new Error('Could not read TX events.');
+      throw new Error("Could not read TX events.");
     }
 
     this.logger.debug(`Connection open init successful: ${connectionId}`);
@@ -836,7 +839,7 @@ export class IbcClient {
       consensusHeight,
     } = proof;
     const msg = {
-      typeUrl: '/ibc.core.connection.v1.MsgConnectionOpenTry',
+      typeUrl: "/ibc.core.connection.v1.MsgConnectionOpenTry",
       value: MsgConnectionOpenTry.fromPartial({
         clientId: myClientId,
         counterparty: {
@@ -845,7 +848,7 @@ export class IbcClient {
           prefix: defaultMerklePrefix,
         },
         delayPeriod: defaultDelayPeriod,
-        counterpartyVersions: [ defaultConnectionVersion ],
+        counterpartyVersions: [defaultConnectionVersion],
         signer: senderAddress,
         clientState,
         proofHeight,
@@ -856,7 +859,7 @@ export class IbcClient {
       }),
     };
     this.logger.debug(
-      'MsgConnectionOpenTry',
+      "MsgConnectionOpenTry",
       deepCloneAndMutate(msg, (mutableMsg) => {
         mutableMsg.value.proofClient = toBase64AsAny(
           mutableMsg.value.proofClient,
@@ -870,18 +873,18 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
     }
 
     const myConnectionId = result.events
-      .find((x) => x.type == 'connection_open_try')
-      ?.attributes.find((x) => x.key == 'connection_id')?.value;
+      .find((x) => x.type == "connection_open_try")
+      ?.attributes.find((x) => x.key == "connection_id")?.value;
     if (!myConnectionId) {
-      throw new Error('Could not read TX events.');
+      throw new Error("Could not read TX events.");
     }
 
     this.logger.debug(
@@ -913,7 +916,7 @@ export class IbcClient {
       consensusHeight,
     } = proof;
     const msg = {
-      typeUrl: '/ibc.core.connection.v1.MsgConnectionOpenAck',
+      typeUrl: "/ibc.core.connection.v1.MsgConnectionOpenAck",
       value: MsgConnectionOpenAck.fromPartial({
         connectionId: myConnectionId,
         counterpartyConnectionId: connectionId,
@@ -928,7 +931,7 @@ export class IbcClient {
       }),
     };
     this.logger.debug(
-      'MsgConnectionOpenAck',
+      "MsgConnectionOpenAck",
       deepCloneAndMutate(msg, (mutableMsg) => {
         mutableMsg.value.proofConsensus = toBase64AsAny(
           mutableMsg.value.proofConsensus,
@@ -942,8 +945,8 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -963,7 +966,7 @@ export class IbcClient {
     const senderAddress = this.senderAddress;
     const { proofHeight, proofConnection: proofAck } = proof;
     const msg = {
-      typeUrl: '/ibc.core.connection.v1.MsgConnectionOpenConfirm',
+      typeUrl: "/ibc.core.connection.v1.MsgConnectionOpenConfirm",
       value: MsgConnectionOpenConfirm.fromPartial({
         connectionId: myConnectionId,
         signer: senderAddress,
@@ -972,7 +975,7 @@ export class IbcClient {
       }),
     };
     this.logger.debug(
-      'MsgConnectionOpenConfirm',
+      "MsgConnectionOpenConfirm",
       deepCloneAndMutate(msg, (mutableMsg) => {
         mutableMsg.value.proofAck = toBase64AsAny(mutableMsg.value.proofAck);
       }),
@@ -980,8 +983,8 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -1005,7 +1008,7 @@ export class IbcClient {
     );
     const senderAddress = this.senderAddress;
     const msg = {
-      typeUrl: '/ibc.core.channel.v1.MsgChannelOpenInit',
+      typeUrl: "/ibc.core.channel.v1.MsgChannelOpenInit",
       value: MsgChannelOpenInit.fromPartial({
         portId,
         channel: {
@@ -1014,28 +1017,28 @@ export class IbcClient {
           counterparty: {
             portId: remotePortId,
           },
-          connectionHops: [ connectionId ],
+          connectionHops: [connectionId],
           version,
         },
         signer: senderAddress,
       }),
     };
-    this.logger.debug('MsgChannelOpenInit', msg);
+    this.logger.debug("MsgChannelOpenInit", msg);
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
     }
 
     const channelId = result.events
-      .find((x) => x.type == 'channel_open_init')
-      ?.attributes.find((x) => x.key == 'channel_id')?.value;
+      .find((x) => x.type == "channel_open_init")
+      ?.attributes.find((x) => x.key == "channel_id")?.value;
     if (!channelId) {
-      throw new Error('Could not read TX events.');
+      throw new Error("Could not read TX events.");
     }
 
     this.logger.debug(`Channel open init successful: ${channelId}`);
@@ -1062,7 +1065,7 @@ export class IbcClient {
     const senderAddress = this.senderAddress;
     const { proofHeight, proof: proofInit } = proof;
     const msg = {
-      typeUrl: '/ibc.core.channel.v1.MsgChannelOpenTry',
+      typeUrl: "/ibc.core.channel.v1.MsgChannelOpenTry",
       value: MsgChannelOpenTry.fromPartial({
         portId,
         counterpartyVersion,
@@ -1070,7 +1073,7 @@ export class IbcClient {
           state: State.STATE_TRYOPEN,
           ordering,
           counterparty: remote,
-          connectionHops: [ connectionId ],
+          connectionHops: [connectionId],
           version,
         },
         proofInit,
@@ -1079,7 +1082,7 @@ export class IbcClient {
       }),
     };
     this.logger.debug(
-      'MsgChannelOpenTry',
+      "MsgChannelOpenTry",
       deepCloneAndMutate(msg, (mutableMsg) => {
         mutableMsg.value.proofInit = toBase64AsAny(mutableMsg.value.proofInit);
       }),
@@ -1087,18 +1090,18 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
     }
 
     const channelId = result.events
-      .find((x) => x.type == 'channel_open_try')
-      ?.attributes.find((x) => x.key == 'channel_id')?.value;
+      .find((x) => x.type == "channel_open_try")
+      ?.attributes.find((x) => x.key == "channel_id")?.value;
     if (!channelId) {
-      throw new Error('Could not read TX events.');
+      throw new Error("Could not read TX events.");
     }
 
     this.logger.debug(
@@ -1125,7 +1128,7 @@ export class IbcClient {
     const senderAddress = this.senderAddress;
     const { proofHeight, proof: proofTry } = proof;
     const msg = {
-      typeUrl: '/ibc.core.channel.v1.MsgChannelOpenAck',
+      typeUrl: "/ibc.core.channel.v1.MsgChannelOpenAck",
       value: MsgChannelOpenAck.fromPartial({
         portId,
         channelId,
@@ -1137,7 +1140,7 @@ export class IbcClient {
       }),
     };
     this.logger.debug(
-      'MsgChannelOpenAck',
+      "MsgChannelOpenAck",
       deepCloneAndMutate(msg, (mutableMsg) => {
         mutableMsg.value.proofTry = toBase64AsAny(mutableMsg.value.proofTry);
       }),
@@ -1145,8 +1148,8 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -1169,7 +1172,7 @@ export class IbcClient {
     const senderAddress = this.senderAddress;
     const { proofHeight, proof: proofAck } = proof;
     const msg = {
-      typeUrl: '/ibc.core.channel.v1.MsgChannelOpenConfirm',
+      typeUrl: "/ibc.core.channel.v1.MsgChannelOpenConfirm",
       value: MsgChannelOpenConfirm.fromPartial({
         portId,
         channelId,
@@ -1179,7 +1182,7 @@ export class IbcClient {
       }),
     };
     this.logger.debug(
-      'MsgChannelOpenConfirm',
+      "MsgChannelOpenConfirm",
       deepCloneAndMutate(msg, (mutableMsg) => {
         mutableMsg.value.proofAck = toBase64AsAny(mutableMsg.value.proofAck);
       }),
@@ -1187,8 +1190,8 @@ export class IbcClient {
 
     const result = await this.sign.signAndBroadcast(
       senderAddress,
-      [ msg ],
-      'auto',
+      [msg],
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -1205,7 +1208,7 @@ export class IbcClient {
     proofCommitment: Uint8Array,
     proofHeight?: Height,
   ): Promise<MsgResult> {
-    return this.receivePackets([ packet ], [ proofCommitment ], proofHeight);
+    return this.receivePackets([packet], [proofCommitment], proofHeight);
   }
 
   public async receivePackets(
@@ -1220,7 +1223,7 @@ export class IbcClient {
       );
     }
     if (packets.length === 0) {
-      throw new Error('Must submit at least 1 packet');
+      throw new Error("Must submit at least 1 packet");
     }
 
     const senderAddress = this.senderAddress;
@@ -1232,29 +1235,41 @@ export class IbcClient {
         presentPacketData(packet.data),
       );
       const msg = {
-        typeUrl: '/ibc.core.channel.v1.MsgRecvPacket',
+        typeUrl: "/ibc.core.channel.v1.MsgRecvPacket",
         value: MsgRecvPacket.fromPartial({
           packet: {
             ...packet,
-            timeoutTimestamp: Long.fromString(packet.timeoutTimestamp.toString()),
+            timeoutTimestamp: Long.fromString(
+              packet.timeoutTimestamp.toString(),
+            ),
             sequence: Long.fromString(packet.sequence.toString()),
             timeoutHeight: {
-              revisionNumber: Long.fromString(packet.timeoutHeight.revisionNumber.toString()),
-              revisionHeight: Long.fromString(packet.timeoutHeight.revisionHeight.toString()),
+              revisionNumber: Long.fromString(
+                packet.timeoutHeight.revisionNumber.toString(),
+              ),
+              revisionHeight: Long.fromString(
+                packet.timeoutHeight.revisionHeight.toString(),
+              ),
             },
           },
           proofCommitment: proofCommitments[i],
-          proofHeight: !proofHeight ? undefined : {
-            revisionNumber: Long.fromString(proofHeight.revisionNumber.toString()),
-            revisionHeight: Long.fromString(proofHeight.revisionHeight.toString()),
-          },
+          proofHeight: !proofHeight
+            ? undefined
+            : {
+                revisionNumber: Long.fromString(
+                  proofHeight.revisionNumber.toString(),
+                ),
+                revisionHeight: Long.fromString(
+                  proofHeight.revisionHeight.toString(),
+                ),
+              },
 
           signer: senderAddress,
         }),
       };
       msgs.push(msg);
     }
-    this.logger.debug('MsgRecvPacket(s)', {
+    this.logger.debug("MsgRecvPacket(s)", {
       msgs: msgs.map((msg) =>
         deepCloneAndMutate(msg, (mutableMsg) => {
           mutableMsg.value.proofCommitment = toBase64AsAny(
@@ -1271,7 +1286,7 @@ export class IbcClient {
     const result = await this.sign.signAndBroadcast(
       senderAddress,
       msgs,
-      'auto',
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -1288,7 +1303,7 @@ export class IbcClient {
     proofAcked: Uint8Array,
     proofHeight?: Height,
   ): Promise<MsgResult> {
-    return this.acknowledgePackets([ ack ], [ proofAcked ], proofHeight);
+    return this.acknowledgePackets([ack], [proofAcked], proofHeight);
   }
 
   public async acknowledgePackets(
@@ -1303,7 +1318,7 @@ export class IbcClient {
       );
     }
     if (acks.length === 0) {
-      throw new Error('Must submit at least 1 ack');
+      throw new Error("Must submit at least 1 ack");
     }
 
     const senderAddress = this.senderAddress;
@@ -1320,29 +1335,41 @@ export class IbcClient {
         },
       );
       const msg = {
-        typeUrl: '/ibc.core.channel.v1.MsgAcknowledgement',
+        typeUrl: "/ibc.core.channel.v1.MsgAcknowledgement",
         value: MsgAcknowledgement.fromPartial({
           packet: {
             ...packet,
-            timeoutTimestamp: Long.fromString(packet.timeoutTimestamp.toString()),
+            timeoutTimestamp: Long.fromString(
+              packet.timeoutTimestamp.toString(),
+            ),
             sequence: Long.fromString(packet.sequence.toString()),
             timeoutHeight: {
-              revisionNumber: Long.fromString(packet.timeoutHeight.revisionNumber.toString()),
-              revisionHeight: Long.fromString(packet.timeoutHeight.revisionHeight.toString()),
+              revisionNumber: Long.fromString(
+                packet.timeoutHeight.revisionNumber.toString(),
+              ),
+              revisionHeight: Long.fromString(
+                packet.timeoutHeight.revisionHeight.toString(),
+              ),
             },
           },
           acknowledgement,
           proofAcked: proofAckeds[i],
-          proofHeight: !proofHeight ? undefined : {
-            revisionNumber: Long.fromString(proofHeight.revisionNumber.toString()),
-            revisionHeight: Long.fromString(proofHeight.revisionHeight.toString()),
-          },
+          proofHeight: !proofHeight
+            ? undefined
+            : {
+                revisionNumber: Long.fromString(
+                  proofHeight.revisionNumber.toString(),
+                ),
+                revisionHeight: Long.fromString(
+                  proofHeight.revisionHeight.toString(),
+                ),
+              },
           signer: senderAddress,
         }),
       };
       msgs.push(msg);
     }
-    this.logger.debug('MsgAcknowledgement(s)', {
+    this.logger.debug("MsgAcknowledgement(s)", {
       msgs: msgs.map((msg) =>
         deepCloneAndMutate(msg, (mutableMsg) => {
           mutableMsg.value.acknowledgement = toBase64AsAny(
@@ -1362,7 +1389,7 @@ export class IbcClient {
     const result = await this.sign.signAndBroadcast(
       senderAddress,
       msgs,
-      'auto',
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -1381,9 +1408,9 @@ export class IbcClient {
     proofHeight: Height,
   ): Promise<MsgResult> {
     return this.timeoutPackets(
-      [ packet ],
-      [ proofUnreceived ],
-      [ nextSequenceRecv ],
+      [packet],
+      [proofUnreceived],
+      [nextSequenceRecv],
       proofHeight,
     );
   }
@@ -1395,10 +1422,10 @@ export class IbcClient {
     proofHeight: Height,
   ): Promise<MsgResult> {
     if (packets.length !== proofsUnreceived.length) {
-      throw new Error('Packets and proofs must be same length');
+      throw new Error("Packets and proofs must be same length");
     }
     if (packets.length !== nextSequenceRecv.length) {
-      throw new Error('Packets and sequences must be same length');
+      throw new Error("Packets and sequences must be same length");
     }
 
     this.logger.verbose(`Timeout ${packets.length} packets...`);
@@ -1413,22 +1440,32 @@ export class IbcClient {
       );
 
       const msg = {
-        typeUrl: '/ibc.core.channel.v1.MsgTimeout',
+        typeUrl: "/ibc.core.channel.v1.MsgTimeout",
         value: MsgTimeout.fromPartial({
           packet: {
             ...packet,
-            timeoutTimestamp: Long.fromString(packet.timeoutTimestamp.toString()),
+            timeoutTimestamp: Long.fromString(
+              packet.timeoutTimestamp.toString(),
+            ),
             sequence: Long.fromString(packet.sequence.toString()),
             timeoutHeight: {
-              revisionNumber: Long.fromString(packet.timeoutHeight.revisionNumber.toString()),
-              revisionHeight: Long.fromString(packet.timeoutHeight.revisionHeight.toString()),
+              revisionNumber: Long.fromString(
+                packet.timeoutHeight.revisionNumber.toString(),
+              ),
+              revisionHeight: Long.fromString(
+                packet.timeoutHeight.revisionHeight.toString(),
+              ),
             },
           },
           proofUnreceived: proofsUnreceived[i],
           nextSequenceRecv: Long.fromString(nextSequenceRecv[i].toString()),
           proofHeight: {
-            revisionNumber: Long.fromString(proofHeight.revisionNumber.toString()),
-            revisionHeight: Long.fromString(proofHeight.revisionHeight.toString()),
+            revisionNumber: Long.fromString(
+              proofHeight.revisionNumber.toString(),
+            ),
+            revisionHeight: Long.fromString(
+              proofHeight.revisionHeight.toString(),
+            ),
           },
           signer: senderAddress,
         }),
@@ -1436,7 +1473,7 @@ export class IbcClient {
       msgs.push(msg);
     }
 
-    this.logger.debug('MsgTimeout', {
+    this.logger.debug("MsgTimeout", {
       msgs: msgs.map((msg) =>
         deepCloneAndMutate(msg, (mutableMsg) => {
           if (mutableMsg.value.packet?.data) {
@@ -1453,7 +1490,7 @@ export class IbcClient {
     const result = await this.sign.signAndBroadcast(
       senderAddress,
       msgs,
-      'auto',
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
@@ -1483,7 +1520,7 @@ export class IbcClient {
       sourceChannel,
       timeoutHeight,
       timeoutTime,
-      'auto',
+      "auto",
     );
     if (isDeliverTxFailure(result)) {
       throw new Error(createDeliverTxFailureMessage(result));
