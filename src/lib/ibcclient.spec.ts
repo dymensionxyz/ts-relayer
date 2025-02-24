@@ -65,7 +65,8 @@ test.serial("create and update wasmd client on gaia", async (t) => {
   for (let i = 0; i < 10; i++) {
     await src.waitOneBlock();
   }
-  const newHeader = await src.buildHeader(header.height);
+  const signedHeader = await src.getSignedHeader();
+  const newHeader = await src.buildHeader(header.height, signedHeader);
   const newHeight = newHeader.signedHeader?.header?.height;
   t.not(Number(newHeight), header.height);
 

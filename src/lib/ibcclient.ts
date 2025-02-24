@@ -457,18 +457,19 @@ export class IbcClient {
   //
   // For the vote sign bytes, it checks (from the commit):
   //   Height, Round, BlockId, TimeStamp, ChainID
-  public async buildHeader(lastHeight: number): Promise<TendermintHeader> {
-    const signedHeader = await this.getSignedHeader();
+  //
+  // DYMENSION CHANGE: moved signed header to be arg to enable lazy calls
+  public async buildHeader(clientHeight: number, signedHeader : SignedHeader): Promise<TendermintHeader> {
+
     // "assert that trustedVals is NextValidators of last trusted header"
     // https://github.com/cosmos/cosmos-sdk/blob/v0.41.0/x/ibc/light-clients/07-tendermint/types/update.go#L74
-    const validatorHeight = lastHeight + 1;
     /* eslint @typescript-eslint/no-non-null-assertion: "off" */
     const curHeight = Number(signedHeader.header!.height);
     return TendermintHeader.fromPartial({
       signedHeader,
       validatorSet: await this.getValidatorSet(curHeight),
-      trustedHeight: this.revisionHeight(lastHeight),
-      trustedValidators: await this.getValidatorSet(validatorHeight),
+      trustedHeight: this.revisionHeight(clientHeight),
+      trustedValidators: await this.getValidatorSet(clientHeight+1),
     });
   }
 
@@ -612,7 +613,16 @@ export class IbcClient {
     src: IbcClient,
   ): Promise<Height> {
     const { latestHeight } = await this.query.ibc.client.stateTm(clientId);
-    const header = await src.buildHeader(toIntHeight(latestHeight));
+
+    // DYMENSION CHANGE: moved signed header to be arg to enable lazy calls
+    // Avoid force updating if already up to date, or node is latent (not sequencer)
+    const signedHeader = await src.getSignedHeader();
+    const curHeight = Number(signedHeader.header!.height);
+    if ( curHeight <= latestHeight.revisionHeight ) {
+      return latestHeight;
+    }
+
+    const header = await src.buildHeader(toIntHeight(latestHeight), signedHeader);
     await this.updateTendermintClient(clientId, header);
     const height = Number(header.signedHeader?.header?.height ?? 0);
     return src.revisionHeight(height);

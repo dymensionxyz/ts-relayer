@@ -815,7 +815,7 @@ export class Link {
     const { src, dest } = this.getEnds(source);
     const destSide = otherSide(source);
 
-    await sleep(dest.client.estimatedBlockTime);
+    await sleep(1.3 * dest.client.estimatedBlockTime);
     const headerHeight = await this.updateClient(destSide);
 
     const rawPackets = packets.map(({ packet }) => packet);
