@@ -812,7 +812,7 @@ export class Link {
     const destSide = otherSide(source);
 
     await sleep(1.3 * dest.client.estimatedBlockTime);
-    const headerHeight = await this.updateClient(destSide);
+    const headerHeight = await this.updateClient(destSide); // update src client
 
     const rawPackets = packets.map(({ packet }) => packet);
     const proofAndSeqs = await Promise.all(
