@@ -465,12 +465,30 @@ export class IbcClient {
     // https://github.com/cosmos/cosmos-sdk/blob/v0.41.0/x/ibc/light-clients/07-tendermint/types/update.go#L74
     /* eslint @typescript-eslint/no-non-null-assertion: "off" */
     const curHeight = Number(signedHeader.header!.height);
+
+    const curValSet = await this.getValidatorSet(curHeight);
+
+    let trustedVals : ValidatorSet;
+    if (!this.isDYMChain()) {
+      // DYMENSION CHANGE:
+      // IT CAN EASILY HAPPEN THAT THE ROLLAPP HAS PRUNED THE BLOCK CORRESPONDING TO THE HUB
+      // CLIENT LATEST HEIGHT. WE ARE ASSUMING FOR NOW THAT THE ROLLAPP SEQUENCER WILL NOT HAVE
+      // CHANGED. THEREFORE, WE USE THE LAST BLOCK, SIMPLY.
+      trustedVals = curValSet;
+    } else {
+      trustedVals= await this.getValidatorSet(clientHeight + 1)
+    }
+
     return TendermintHeader.fromPartial({
       signedHeader,
-      validatorSet: await this.getValidatorSet(curHeight),
+      validatorSet: curValSet,
       trustedHeight: this.revisionHeight(clientHeight),
-      trustedValidators: await this.getValidatorSet(clientHeight + 1),
+      trustedValidators: trustedVals
     });
+  }
+
+  public isDYMChain() : boolean {
+    return this.chainId.startsWith('dymension_');
   }
 
   // trustedHeight must be proven by the client on the destination chain
@@ -615,7 +633,7 @@ export class IbcClient {
     const { latestHeight } = await this.query.ibc.client.stateTm(clientId);
 
     // DYMENSION CHANGE: moved signed header to be arg to enable lazy calls
-    // Avoid force updating if already up to date, or node is latent (not sequencer)
+    // Avoid force updating if already up to date, or node is latent (i.e. if not sequencer and behind tip)
     const signedHeader = await src.getSignedHeader();
     const curHeight = Number(signedHeader.header!.height);
     if (curHeight <= latestHeight.revisionHeight) {
