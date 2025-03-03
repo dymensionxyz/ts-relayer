@@ -177,7 +177,7 @@ export class Link {
 
     const endA = new Endpoint(nodeA, clientIdA, connA);
     const endB = new Endpoint(nodeB, clientIdB, connB);
-    const link = new Link(endA, endB, logger);
+    return new Link(endA, endB, logger);
 
     /*
     DYMENSION CHANGE:
@@ -186,7 +186,6 @@ export class Link {
      */
 
 
-    return link;
   }
 
   /**
