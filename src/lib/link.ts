@@ -304,6 +304,7 @@ export class Link {
   }
 
   /**
+   * UPDATES THE CLIENT ON THE COUNTERPARTY OF SENDER
    * Writes the latest header from the sender chain to the other endpoint
    *
    * @param sender Which side we get the header/commit from
@@ -358,6 +359,7 @@ export class Link {
   }
 
   /**
+   * UPDATES THE CLIENT ON THE COUNTERPARTY OF SOURCE
    * Ensures the dest has a proof of at least minHeight from source.
    * Will not execute any tx if not needed.
    * Will wait a block if needed until the header is available.
@@ -757,8 +759,8 @@ export class Link {
     }));
   }
 
-  // this will update the client if needed and relay all provided acks from src -> dest
-  // (yes, dest is where the packet was sent, but the ack was written on src).
+
+  // DYMENSION CLARIFICATION: SEND ACKS COMMITED ON SOURCE TO COUNTERPARTY OF SOURCE
   // if acks are all older than the last consensusHeight, then we don't update the client.
   //
   // Returns the block height the acks were included in, or null if no acks sent
@@ -779,6 +781,7 @@ export class Link {
 
     // check if we need to update client at all
     const neededHeight = Math.max(...acks.map((x) => x.height)) + 1;
+    // UPDATES COUNTERPARTY OF SOURCE
     const headerHeight = await this.updateClientToHeight(source, neededHeight);
 
     const proofs = await Promise.all(
