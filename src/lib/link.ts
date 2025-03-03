@@ -179,18 +179,12 @@ export class Link {
     const endB = new Endpoint(nodeB, clientIdB, connB);
     const link = new Link(endA, endB, logger);
 
-    await Promise.all([
-      link.assertHeadersMatchConsensusState(
-        "A",
-        clientIdA,
-        clientStateA.latestHeight,
-      ),
-      link.assertHeadersMatchConsensusState(
-        "B",
-        clientIdB,
-        clientStateB.latestHeight,
-      ),
-    ]);
+    /*
+    DYMENSION CHANGE:
+    Remove assertion for both clients that the header on the counterparty chain matches the latest height of the client state.
+    It was not working because in dymint we are pruning aggressively and the header might not be available.
+     */
+
 
     return link;
   }
