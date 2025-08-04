@@ -1,15 +1,15 @@
-import { toHex } from "@cosmjs/encoding";
-import { Event, fromTendermintEvent } from "@cosmjs/stargate";
-import { tendermint34, tendermint37 } from "@cosmjs/tendermint-rpc";
-import { Packet } from "cosmjs-types/ibc/core/channel/v1/channel";
+import { toHex } from '@cosmjs/encoding';
+import { Event, fromTendermintEvent } from '@cosmjs/stargate';
+import { tendermint34, tendermint37 } from '@cosmjs/tendermint-rpc';
+import { Packet } from 'cosmjs-types/ibc/core/channel/v1/channel';
 
-import { IbcClient } from "./ibcclient";
+import { IbcClient } from './ibcclient';
 import {
   Ack,
   parseAcksFromTxEvents,
   parsePacketsFromBlockResult,
   parsePacketsFromTendermintEvents,
-} from "./utils";
+} from './utils';
 
 export interface PacketWithMetadata {
   packet: Packet;
@@ -33,6 +33,7 @@ export type AckWithMetadata = Ack & {
 };
 
 export interface QueryOpts {
+  sequence?: number;
   minHeight?: number;
   maxHeight?: number;
 }
@@ -69,10 +70,14 @@ export class Endpoint {
   }
 
   private async getPacketsFromBlockEvents({
+    sequence,
     minHeight,
     maxHeight,
   }: QueryOpts = {}): Promise<PacketWithMetadata[]> {
     let query = `send_packet.packet_connection='${this.connectionID}'`;
+    if (sequence !== undefined) {
+      query = `${query} AND send_packet.packet_sequence=${sequence}`;
+    }
     if (minHeight) {
       query = `${query} AND block.height>=${minHeight}`;
     }
@@ -88,7 +93,7 @@ export class Endpoint {
         return parsePacketsFromBlockResult(result).map((packet) => ({
           packet,
           height,
-          sender: "",
+          sender: '',
         }));
       }),
     );
@@ -97,10 +102,14 @@ export class Endpoint {
   }
 
   private async getPacketsFromTxs({
+    sequence,
     minHeight,
     maxHeight,
   }: QueryOpts = {}): Promise<PacketWithMetadata[]> {
     let query = `send_packet.packet_connection='${this.connectionID}'`;
+    if (sequence !== undefined) {
+      query = `${query} AND send_packet.packet_sequence=${sequence}`;
+    }
     if (minHeight) {
       query = `${query} AND tx.height>=${minHeight}`;
     }
@@ -121,11 +130,17 @@ export class Endpoint {
 
   // returns all packets (auto-paginates, so be careful about not setting a minHeight)
   public async querySentPackets({
+    sequence,
     minHeight,
     maxHeight,
   }: QueryOpts = {}): Promise<PacketWithMetadata[]> {
-    const txsPackets = await this.getPacketsFromTxs({ minHeight, maxHeight });
+    const txsPackets = await this.getPacketsFromTxs({
+      sequence,
+      minHeight,
+      maxHeight,
+    });
     const eventsPackets = await this.getPacketsFromBlockEvents({
+      sequence,
       minHeight,
       maxHeight,
     });
@@ -136,10 +151,14 @@ export class Endpoint {
 
   // returns all acks (auto-paginates, so be careful about not setting a minHeight)
   public async queryWrittenAcks({
+    sequence,
     minHeight,
     maxHeight,
   }: QueryOpts = {}): Promise<AckWithMetadata[]> {
     let query = `write_acknowledgement.packet_connection='${this.connectionID}'`;
+    if (sequence !== undefined) {
+      query = `${query} AND send_packet.packet_sequence=${sequence}`;
+    }
     if (minHeight) {
       query = `${query} AND tx.height>=${minHeight}`;
     }
